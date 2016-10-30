@@ -58,6 +58,7 @@
   with_items: "{{ rabbitmq_enabled_plugins }}"
   notify: restart rabbitmq
   tags: rabbitmq_config
+  changed_when: False
 
 - name: service start
   service:
