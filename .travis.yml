@@ -1,0 +1,42 @@
+env:
+  - distro: debianjessie
+    init: "/sbin/init"
+    run_opts: ""
+    playbook: test.yml
+  - distro: ubuntutrusty
+    init: "/sbin/init"
+    run_opts: ""
+    playbook: test.yml
+  - distro: ubuntuxenial
+    init: "/sbin/init"
+    run_opts: ""
+    playbook: test.yml
+
+services:
+  - docker
+
+before_install:
+  - docker pull jebovic/${distro}-ansible:latest
+
+script:
+  # run container
+  - container_id=$(mktemp)
+  - docker run --detach --privileged --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro --volume="${PWD}":/etc/ansible/roles/role_under_test:ro ${run_opts} jebovic/${distro}-ansible:latest "${init}" > "${container_id}"
+  # syntax checking
+  - docker exec --tty "$(cat ${container_id})" env TERM=xterm ansible-playbook /etc/ansible/roles/role_under_test/tests/${playbook} --syntax-check
+  # test role
+  - docker exec "$(cat ${container_id})" env TERM=xterm ansible-playbook /etc/ansible/roles/role_under_test/tests/${playbook}
+  # test role idempotence
+  - idempotence=$(mktemp)
+  - docker exec "$(cat ${container_id})" ansible-playbook /etc/ansible/roles/role_under_test/tests/${playbook} | tee -a ${idempotence}
+  - >
+    tail ${idempotence}
+    | grep -q 'changed=0.*failed=0'
+    && (echo 'Idempotence test: pass' && exit 0)
+    || (echo 'Idempotence test: fail' && exit 1)
+  # test role tasks
+
+notifications:
+  webhooks: https://galaxy.ansible.com/api/v1/notifications/
+  slack:
+    secure: vIinHRNy34aCwGZIlTDfSzjn92ToJxfwKPvwm1iWRLjEgMmGdlB9p5lCrcnQxIY93PNI5rrgWw+vP61v0Oh+AUQX79maoJD5SoPK6+D3vapBMrKqexy/jCu/WOjaTEAoYlCabug+F9sQpDTQqMC49+OhgFT5aZIHgiJHyi2/uHkRgEjWUanZD2zaFM0ZuZGeB+X6F2VAp/HIcUh3JB7ERtn57ERGFk1s9J6G8jwjDfgbkTBIxs9DulMskbVdraDz9QmiRrLS0hZEMT9lDWoWRVhlglKHW7J9LCAx5irrnDsdoVZkOC/zJ8E0JOIKSG0BE4UjqjD5dXYoXI+EjwYsobkUn6gqak0XnuCQ4Gpw0F1EUYwVKIvrGKZu7GVCoFaR/7TDMuuG0XhK1zhl6xaCAdAvZRtufhYmeNk8LJrRXylv3qNoxP4r14CTj/tJY4RwYPe8qcF2DUU/4NUd4auG68QZt9hQQY1ys/4CMfGnUhlEKIBmUd+hxfhdN+QZcJpwcJH1goPIcRMDFuFrSgIX3nMlaG7gggw5FV3xnBVc9d2/PukAXBOS+az7wItQyHxxZ2g3tN/VS5kVl0C+00qV33sPSDTAqmTjdvPa6xg0mb1/9RPn3cEkSZCjm9pTjyjWY2iyxU6hJIkK+DIhxOiRQDN9sKL43lfycdu8Z1zerYw=
