@@ -8,4 +8,4 @@
 - name: stop rabbitmq
   service:
     name:  "{{ rabbitmq_daemon }}"
-    state: stoped
+    state: stopped
