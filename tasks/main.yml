@@ -20,7 +20,13 @@
     update_cache:       yes
     cache_valid_time:   300
   with_items: "{{ rabbitmq_packages }}"
-  notify: stop rabbitmq
+  register: package_installed
+
+- name: stop service
+  service:
+    name: "{{ rabbitmq_daemon }}"
+    state: stopped
+  when: package_installed.changed
 
 - name: "ensure usergroup '{{ rabbitmq_default_user_group }}' exists"
   group:
